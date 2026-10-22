@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>CodeRefine | AI Code Reviewer & Refactor Assistant</title>
+  <style>
+    :root {
+      --bg: #100F1D;
+      --panel: #1B1930;
+      --border: #393452;
+      --accent: #A78BFA;
+      --accent-hover: #C4B5FD;
+      --muted: #B9B4D0;
+      --text: #F4F0FF;
+      --code-bg: #0C0B16;
+      --code-highlight: #D8D4F5;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; background: var(--bg); color: var(--text);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif;
+      line-height: 1.6;
+    }
+    .wrap { width: min(1050px, calc(100% - 32px)); margin: 0 auto; padding: 36px 0 60px; }
+    header { margin-bottom: 28px; }
+    .eyebrow { color: var(--accent); font-size: .82rem; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; }
+    h1 { margin: 8px 0; font-size: clamp(2rem, 5vw, 3.2rem); line-height: 1.12; }
+    h1 span { color: var(--accent); }
+    .intro { color: var(--muted); max-width: 720px; margin: 12px 0 0; }
+    .panel { background: var(--panel); border: 1px solid var(--border); border-radius: 18px; padding: 24px; margin-top: 20px; }
+    h2 { margin: 0 0 12px; font-size: 1.35rem; }
+    .muted { color: var(--muted); }
+    .upload { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; margin-top: 18px; }
+    input[type=file] { flex: 1; min-width: 220px; max-width: 100%; color: var(--muted); }
+    input::file-selector-button {
+      background: #292541; color: var(--text); border: 1px solid var(--border);
+      border-radius: 9px; padding: 10px 12px; margin-right: 10px; cursor: pointer;
+    }
+    button, .button {
+      border: 0; border-radius: 10px; background: var(--accent); color: #171126;
+      padding: 11px 17px; font-weight: 800; cursor: pointer; text-decoration: none; display: inline-block;
+    }
+    button:hover, .button:hover { background: var(--accent-hover); }
+    .error { border: 1px solid #9f536c; background: #351c2b; color: #ffdbe6; padding: 12px 14px; border-radius: 10px; margin-top: 16px; }
+    .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin: 16px 0; }
+    .stat { background: var(--code-bg); border: 1px solid var(--border); border-radius: 12px; padding: 15px; }
+    .stat strong { display: block; font-size: 1.7rem; color: var(--accent); }
+    .stat small { color: var(--muted); }
+    .finding { border: 1px solid var(--border); border-radius: 12px; padding: 15px; margin-top: 12px; }
+    .finding-top { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+    .tag { font-size: .78rem; border: 1px solid var(--border); border-radius: 999px; padding: 2px 9px; color: var(--accent-hover); }
+    .finding p { margin: 8px 0 0; }
+    code, pre { font-family: Consolas, "Courier New", monospace; }
+    pre { overflow-x: auto; background: var(--code-bg); border: 1px solid var(--border); border-radius: 12px; padding: 16px; color: var(--code-highlight); }
+    .actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 18px; }
+    footer { color: var(--muted); font-size: .9rem; margin-top: 24px; }
+    @media (max-width: 600px) { .panel { padding: 18px; } .wrap { width: min(100% - 22px, 1050px); padding-top: 24px; } }
+  </style>
+</head>
+<body>
+  <main class="wrap">
+    <header>
+      <div class="eyebrow">Python code quality tool</div>
+      <h1>Code<span>Refine</span></h1>
+      <p class="intro">AI Code Reviewer &amp; Refactor Assistant — review Python syntax, code quality, and common security patterns in one place.</p>
+    </header>
+
+    <section class="panel">
+      <h2>Review your Python code</h2>
+      <p class="muted">Choose a <code>.py</code> file. Your uploaded source is checked with static-analysis tools; it is not executed by this app.</p>
+      <form method="post" enctype="multipart/form-data">
+        <div class="upload">
+          <input type="file" name="code_file" accept=".py" required>
+          <button type="submit">Review Code</button>
+        </div>
+      </form>
+      {% if error %}<div class="error" role="alert">{{ error }}</div>{% endif %}
+    </section>
+
+    {% if report %}
+    <section class="panel" aria-live="polite">
+      <h2>Review Results</h2>
+      <p class="muted">File: <strong>{{ report.filename }}</strong> · Generated: {{ report.generated }}</p>
+      <div class="stats">
+        <div class="stat"><strong>{{ report.score }}/100</strong><small>Indicative score</small></div>
+        <div class="stat"><strong>{{ report.lines_of_code }}</strong><small>Non-empty lines</small></div>
+        <div class="stat"><strong>{{ report.findings|length }}</strong><small>Distinct findings</small></div>
+        <div class="stat"><strong>{{ "Passed" if report.syntax_ok else "Failed" }}</strong><small>Python syntax</small></div>
+      </div>
+
+      <h2>Findings</h2>
+      {% if report.findings %}
+        {% for finding in report.findings %}
+        <article class="finding">
+          <div class="finding-top">
+            <strong>{{ finding.code }}</strong>
+            <span class="tag">{{ finding.tool }}</span>
+            <span class="tag">{{ finding.severity }}</span>
+            <span class="tag">Line {{ finding.line }}</span>
+          </div>
+          <p>{{ finding.message }}</p>
+        </article>
+        {% endfor %}
+      {% else %}
+        <p>No findings were detected by the configured checks.</p>
+      {% endif %}
+
+      <h2 style="margin-top:24px">Uploaded source code</h2>
+      <pre><code>{{ report.source }}</code></pre>
+      <div class="actions"><a class="button" href="{{ url_for('download_report') }}">Download Report</a></div>
+      <p class="muted">This static-analysis report is not a guarantee that code is correct or secure.</p>
+    </section>
+    {% endif %}
+
+    <footer>CodeRefine · Built with Flask, Ruff, and Bandit.</footer>
+  </main>
+</body>
+</html>
